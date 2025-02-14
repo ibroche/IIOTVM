@@ -56,24 +56,38 @@ cloudflared tunnel route dns $TUNNEL_ID opcua.$DOMAIN
 cloudflared service install
 sudo systemctl enable --now cloudflared
 
-# 📌 Installation des Dépendances pour Open62541
-echo "🔧 Installation des dépendances..."
+# 📌 Suppression complète des anciennes installations
+echo "🧹 Nettoyage des anciennes installations..."
+sudo systemctl stop opcua_server.service || true
+sudo systemctl disable opcua_server.service || true
+sudo rm -rf ~/open62541 ~/opcua_server
+sudo rm -rf /usr/local/include/open62541*
+sudo rm -rf /usr/local/lib/libopen62541*
+sudo rm -rf /etc/systemd/system/opcua_server.service
+sudo systemctl daemon-reload
+sudo apt remove --purge -y cmake gcc git libssl-dev libjansson-dev pkg-config
+sudo apt autoremove -y
 sudo apt install -y cmake gcc git libssl-dev libjansson-dev pkg-config python3 python3-pip python3-dev
 
-# 📌 Téléchargement et Compilation de Open62541
+# 📌 Installation propre de Open62541
 echo "⚙️ Téléchargement et compilation de Open62541..."
 mkdir -p ~/open62541
 cd ~/open62541
 git clone https://github.com/open62541/open62541.git
 cd open62541
 git checkout v1.3.5
+
+# 📌 Suppression du répertoire `build` s'il existe
+rm -rf build
 mkdir build && cd build
+
+# 📌 Configuration et Compilation
 cmake .. -DUA_ENABLE_AMALGAMATION=ON
 make -j$(nproc)
 sudo make install
 sudo ldconfig
 
-# 📌 Vérification de l'installation de Open62541
+# 📌 Vérification de l'installation
 if [ ! -f "/usr/local/include/open62541.h" ]; then
     echo "❌ Erreur : Open62541 n'a pas été installé correctement."
     exit 1
