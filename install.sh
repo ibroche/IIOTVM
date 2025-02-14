@@ -64,9 +64,35 @@ cloudflared tunnel route dns $TUNNEL_ID opcua.$DOMAIN
 cloudflared service install
 sudo systemctl enable --now cloudflared
 
+# 📌 Installation des dépendances pour Open62541 en local
+echo "🔧 Installation des dépendances..."
+sudo apt install -y cmake gcc git libssl-dev libjansson-dev pkg-config
+
+# 📌 Télécharger et Compiler Open62541 en local
+echo "⚙️ Téléchargement et compilation d'open62541..."
+mkdir -p ~/open62541
+cd ~/open62541
+if [ ! -d "open62541" ]; then
+    git clone https://github.com/open62541/open62541.git
+fi
+cd open62541
+git checkout v1.3.5
+mkdir -p build
+cd build
+cmake .. -DUA_ENABLE_AMALGAMATION=ON
+make -j$(nproc)
+sudo make install
+sudo ldconfig
+
+# 📌 Vérification de l'installation de Open62541
+if [ ! -f "/usr/local/include/open62541.h" ]; then
+    echo "❌ Erreur : Open62541 n'a pas été installé correctement."
+    exit 1
+fi
+
 # 📌 Création du répertoire OPC UA + JSON
-mkdir -p opcua_server
-cat <<EOF > opcua_server/variables.json
+mkdir -p ~/opcua_server
+cat <<EOF > ~/opcua_server/variables.json
 {
   "variables": [
     { "name": "temperature", "type": "Double", "initialValue": 25.0 },
@@ -76,8 +102,8 @@ cat <<EOF > opcua_server/variables.json
 }
 EOF
 
-# 📌 Création du serveur OPC UA
-cat <<EOF > opcua_server/opcua_server.c
+# 📌 Création du serveur OPC UA en local
+cat <<EOF > ~/opcua_server/opcua_server.c
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
 #include <open62541/plugin/log_stdout.h>
@@ -122,49 +148,31 @@ int main(void) {
 }
 EOF
 
-# 📌 Création du Dockerfile pour OPC UA
-cat <<EOF > opcua_server/Dockerfile
-FROM ubuntu:latest
+# 📌 Compilation du serveur OPC UA en local
+gcc -std=c99 -o ~/opcua_server/opcua_server_bin ~/opcua_server/opcua_server.c \
+    -I/usr/local/include -L/usr/local/lib $(pkg-config --cflags --libs open62541) -ljansson
 
-# 📌 Installation des dépendances
-RUN apt update && apt install -y cmake gcc git libssl-dev libjansson-dev pkg-config
+# 📌 Création d'un service systemd pour lancer le serveur OPC UA au démarrage
+cat <<EOF | sudo tee /etc/systemd/system/opcua_server.service
+[Unit]
+Description=OPC UA Server
+After=network.target
 
-# 📌 Téléchargement et Compilation de Open62541
-WORKDIR /usr/local/src
-RUN git clone https://github.com/open62541/open62541.git && \
-    cd open62541 && \
-    git checkout v1.3.5 && \
-    mkdir build && cd build && \
-    cmake .. -DUA_ENABLE_AMALGAMATION=ON && \
-    make -j\$(nproc) && \
-    make install && \
-    ldconfig
+[Service]
+ExecStart=/home/$USER/opcua_server/opcua_server_bin
+Restart=always
+User=$USER
+Group=$USER
 
-# 📌 Copie du code source OPC UA dans le container
-WORKDIR /app
-COPY opcua_server.c /app/
-COPY variables.json /app/
-
-# 📌 Compilation du serveur OPC UA
-RUN gcc -std=c99 -o opcua_server_bin opcua_server.c -I/usr/local/include -L/usr/local/lib $(pkg-config --cflags --libs open62541) -ljansson
-
-# 📌 Exécution du serveur OPC UA
-CMD ["/app/opcua_server_bin"]
+[Install]
+WantedBy=multi-user.target
 EOF
 
-# 📌 Vérification et génération de docker-compose.yml si absent
-if [ ! -f "docker-compose.yml" ]; then
-    echo "⚠️ Fichier docker-compose.yml introuvable, génération en cours..."
-    cat <<EOF > docker-compose.yml
-version: '3'
-services:
-  opcua:
-    build: ./opcua_server
-    restart: unless-stopped
-    ports:
-      - "4840:4840"
-EOF
-fi
+# 📌 Activation du service OPC UA
+sudo systemctl daemon-reload
+sudo systemctl enable opcua_server.service
+sudo systemctl start opcua_server.service
+echo "✅ Serveur OPC UA installé et démarré avec succès !"
 
 # 🚀 Lancement des services Docker
 echo "🚀 Lancement des services..."
