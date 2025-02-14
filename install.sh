@@ -65,7 +65,19 @@ cloudflared service install
 sudo systemctl enable --now cloudflared
 
 # 📌 Installation des dépendances pour Open62541
-sudo apt install -y cmake gcc git libssl-dev libjansson-dev
+echo "🔧 Installation des dépendances..."
+sudo apt install -y cmake gcc git libssl-dev libjansson-dev pkg-config
+
+# 📌 Installation et Compilation de open62541
+echo "⚙️ Téléchargement et compilation d'open62541..."
+cd /usr/local/src
+sudo git clone https://github.com/open62541/open62541.git
+cd open62541
+sudo git checkout v1.3.5
+sudo mkdir build && cd build
+sudo cmake .. -DUA_ENABLE_AMALGAMATION=ON
+sudo make -j$(nproc)
+sudo make install
 
 # 📌 Création du répertoire OPC UA + JSON
 mkdir -p opcua_server
@@ -119,8 +131,6 @@ int main(void) {
     UA_Server *server = UA_Server_new();
     UA_ServerConfig_setDefault(UA_Server_getConfig(server));
 
-    loadVariablesFromJSON(server);
-
     UA_StatusCode status = UA_Server_run(server, &(UA_Boolean){true});
     UA_Server_delete(server);
     return status == UA_STATUSCODE_GOOD ? 0 : 1;
@@ -128,55 +138,6 @@ int main(void) {
 EOF
 
 gcc -std=c99 -o opcua_server/opcua_server_bin opcua_server/opcua_server.c $(pkg-config --cflags --libs open62541) -ljansson
-
-# 📌 Création de docker-compose.yml
-cat <<EOF > docker-compose.yml
-version: '3'
-services:
-  nodered:
-    image: nodered/node-red
-    restart: unless-stopped
-    ports:
-      - "1880:1880"
-
-  streamlit:
-    image: python:3.9
-    restart: unless-stopped
-    working_dir: /app
-    volumes:
-      - ./streamlit:/app
-    ports:
-      - "8501:8501"
-    depends_on:
-      - opcua
-    command: [ "bash", "-c", "pip install streamlit opcua pandas && streamlit run app.py --server.port=8501 --server.address=0.0.0.0" ]
-
-  mariadb:
-    image: mariadb
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-    ports:
-      - "3306:3306"
-
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    restart: unless-stopped
-    environment:
-      PMA_HOST: mariadb
-    ports:
-      - "8080:80"
-
-  opcua:
-    build: ./opcua_server
-    restart: unless-stopped
-    ports:
-      - "4840:4840"
-    volumes:
-      - ./opcua_server:/app
-    working_dir: /app
-    command: [ "/app/opcua_server_bin" ]
-EOF
 
 # 🚀 Lancement des services Docker
 echo "🚀 Lancement des services..."
