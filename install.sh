@@ -84,6 +84,12 @@ sudo make -j$(nproc)
 sudo make install
 sudo ldconfig
 
+# 📌 Vérification de l'installation de Open62541
+if [ ! -f "/usr/local/include/open62541.h" ]; then
+    echo "❌ Erreur : Open62541 n'a pas été installé correctement."
+    exit 1
+fi
+
 # 📌 Ajout des chemins pour open62541
 export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
 export C_INCLUDE_PATH="/usr/local/include"
@@ -152,10 +158,36 @@ EOF
 gcc -std=c99 -o opcua_server/opcua_server_bin opcua_server/opcua_server.c \
     -I/usr/local/include -L/usr/local/lib $(pkg-config --cflags --libs open62541) -ljansson
 
-# 📌 Vérification du fichier Docker Compose
+# 📌 Vérification et génération de docker-compose.yml si absent
 if [ ! -f "docker-compose.yml" ]; then
-    echo "❌ Erreur : fichier docker-compose.yml introuvable !"
-    exit 1
+    echo "⚠️ Fichier docker-compose.yml introuvable, génération en cours..."
+    cat <<EOF > docker-compose.yml
+version: '3'
+services:
+  nodered:
+    image: nodered/node-red
+    restart: unless-stopped
+    ports:
+      - "1880:1880"
+
+  streamlit:
+    image: python:3.9
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+
+  opcua:
+    build: ./opcua_server
+    restart: unless-stopped
+    ports:
+      - "4840:4840"
+EOF
 fi
 
 # 🚀 Lancement des services Docker
@@ -163,8 +195,3 @@ echo "🚀 Lancement des services..."
 docker-compose up -d --build
 
 echo "✅ Installation terminée !"
-echo "🌍 Accès aux services :"
-echo "- Node-RED: https://nodered.$DOMAIN"
-echo "- Streamlit: https://streamlit.$DOMAIN"
-echo "- PHPMyAdmin: https://phpmyadmin.$DOMAIN"
-echo "- OPC UA: opc.tcp://opcua.$DOMAIN:4840"
