@@ -1,181 +1,134 @@
 #!/bin/bash
 
-# 🔥 Demander le nom de domaine Cloudflare
-echo "🔹 Entrez votre domaine Cloudflare (ex: votre-domaine.com) :"
-read DOMAIN
+# Mise à jour et installation des paquets nécessaires
+sudo apt update && sudo apt install -y docker.io docker-compose
 
-# 🚀 Mise à Jour et Installation des Dépendances
-echo "🔍 Mise à jour du système..."
-sudo apt update && sudo apt upgrade -y
+# Création du dossier du projet
+mkdir -p projet-opcua/streamlit_app projet-opcua/nodered_data projet-opcua/opcua_config
 
-# 🐳 Installation de Docker + Docker Compose
-echo "🐳 Installation de Docker..."
-sudo apt install -y docker.io docker-compose
-
-# 🌨 Installation de Cloudflared
-echo "🌨 Installation de Cloudflared..."
-sudo mkdir -p /usr/local/bin
-curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
-sudo chmod +x /usr/local/bin/cloudflared
-cloudflared -v
-
-# 🌍 Connexion à Cloudflare
-echo "🌍 Connexion à Cloudflare... Suivez les instructions affichées."
-cloudflared tunnel login
-
-# 📀 Création du tunnel Cloudflare
-echo "📀 Création du tunnel..."
-cloudflared tunnel create mon-tunnel
-TUNNEL_ID=$(cloudflared tunnel list | grep "mon-tunnel" | awk '{print $3}')
-
-# 📼 Configuration du tunnel
-mkdir -p /etc/cloudflared
-cat <<EOF > /etc/cloudflared/config.yml
-tunnel: $TUNNEL_ID
-credentials-file: /root/.cloudflared/$TUNNEL_ID.json
-ingress:
-  - hostname: nodered.$DOMAIN
-    service: http://localhost:1880
-  - hostname: streamlit.$DOMAIN
-    service: http://localhost:8501
-  - hostname: phpmyadmin.$DOMAIN
-    service: http://localhost:8080
-  - hostname: opcua.$DOMAIN
-    service: http://localhost:4840
-  - service: http_status:404
-EOF
-
-# 🌐 Ajout des routes DNS Cloudflare
-cloudflared tunnel route dns $TUNNEL_ID nodered.$DOMAIN
-cloudflared tunnel route dns $TUNNEL_ID streamlit.$DOMAIN
-cloudflared tunnel route dns $TUNNEL_ID phpmyadmin.$DOMAIN
-cloudflared tunnel route dns $TUNNEL_ID opcua.$DOMAIN
-
-# 🛠 Activation du service Cloudflared
-cloudflared service install
-sudo systemctl enable --now cloudflared
-
-# 🛋 Nettoyage et installation propre d'Open62541
-echo "🧹 Nettoyage et installation propre d'Open62541..."
-sudo rm -rf ~/open62541 /usr/local/include/open62541* /usr/local/lib/libopen62541* /etc/systemd/system/opcua_server.service
-sudo systemctl daemon-reload
-
-# 🔨 Installation des Dépendances pour Open62541
-echo "🔨 Installation des dépendances..."
-sudo apt install -y cmake gcc git libssl-dev libjansson-dev pkg-config python3 python3-pip python3-dev mariadb-server
-
-# 💪 Installation et Compilation d'Open62541
-echo "💪 Compilation d'Open62541..."
-mkdir -p ~/open62541 && cd ~/open62541
-git clone --depth=1 --branch v1.3.5 https://github.com/open62541/open62541.git .
-rm -rf build && mkdir build && cd build
-cmake .. -DUA_ENABLE_AMALGAMATION=ON
-make -j$(nproc)
-sudo make install
-sudo ldconfig
-
-# 💡 Vérification de l'installation d'Open62541
-if [ ! -f "/usr/local/include/open62541.h" ]; then
-    echo "❌ Erreur : Open62541 n'a pas été installé correctement."
-    exit 1
-fi
-
-# 🛠 Correction des chemins Open62541
-sudo mkdir -p /usr/local/include/open62541
-sudo cp /usr/local/include/open62541.h /usr/local/include/open62541/server.h
-
-# 🎯 Compilation du Serveur OPC UA
-echo "🎯 Compilation du serveur OPC UA..."
-mkdir -p ~/opcua_server
-cat <<EOF > ~/opcua_server/variables.json
-{
-  "variables": [
-    { "name": "temperature", "type": "Double", "initialValue": 25.0 },
-    { "name": "status", "type": "Boolean", "initialValue": true },
-    { "name": "speed", "type": "Int32", "initialValue": 100 }
-  ]
-}
-EOF
-
-cat <<EOF > ~/opcua_server/opcua_server.c
-#include <open62541/server.h>
-#include <open62541/server_config_default.h>
-#include <open62541/plugin/log_stdout.h>
-#include <jansson.h>
-
-int main(void) {
-    UA_Server *server = UA_Server_new();
-    UA_ServerConfig_setDefault(UA_Server_getConfig(server));
-    UA_StatusCode status = UA_Server_run(server, &(UA_Boolean){true});
-    UA_Server_delete(server);
-    return status == UA_STATUSCODE_GOOD ? 0 : 1;
-}
-EOF
-
-gcc -std=c99 -o ~/opcua_server/opcua_server_bin ~/opcua_server/opcua_server.c \
-    -I/usr/local/include -I/usr/local/include/open62541 -L/usr/local/lib \
-    $(pkg-config --cflags --libs open62541) -ljansson
-
-# 🔒 Configuration du Service OPC UA
-cat <<EOF | sudo tee /etc/systemd/system/opcua_server.service
-[Unit]
-Description=OPC UA Server
-After=network.target
-
-[Service]
-ExecStart=/home/$USER/opcua_server/opcua_server_bin
-Restart=always
-User=$USER
-Group=$USER
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable opcua_server.service
-sudo systemctl start opcua_server.service
-
-# 🐳 Création du fichier docker-compose.yml
-cat <<EOF > docker-compose.yml
+# Création du fichier docker-compose.yml
+cat <<EOL > projet-opcua/docker-compose.yml
 version: '3.8'
-services:
-  nodered:
-    image: nodered/node-red
-    restart: unless-stopped
-    ports:
-      - "1880:1880"
 
+services:
   mariadb:
     image: mariadb:latest
-    restart: unless-stopped
+    container_name: mariadb_container
+    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ec
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
     ports:
       - "3306:3306"
 
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    restart: unless-stopped
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: phpmyadmin_container
+    restart: always
     environment:
       PMA_HOST: mariadb
-      MYSQL_USER: ec
-      MYSQL_PASSWORD: ec
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     ports:
       - "8080:80"
+    depends_on:
+      - mariadb
 
   streamlit:
     image: python:3.9
-    restart: unless-stopped
+    container_name: streamlit_container
+    restart: always
     working_dir: /app
     volumes:
-      - ~/streamlit:/app
-    command: ["python3", "-m", "streamlit", "run", "app.py", "--server.port=8501"]
+      - ./streamlit_app:/app
+    command: >
+      sh -c "pip install streamlit && streamlit run app.py --server.port=8501 --server.address=0.0.0.0"
     ports:
       - "8501:8501"
-EOF
 
-# 🚀 Lancement des Services Docker
-docker-compose up -d --build
+  nodered:
+    image: nodered/node-red:latest
+    container_name: nodered_container
+    restart: always
+    ports:
+      - "1880:1880"
+    volumes:
+      - ./nodered_data:/data
 
-echo "✅ Installation Complète !"
+  opcua_server:
+    image: ghcr.io/freeopcua/opcua-android:latest
+    container_name: opcua_server_container
+    restart: always
+    ports:
+      - "4840:4840"
+    volumes:
+      - ./opcua_config:/config
+
+volumes:
+  mariadb_data:
+EOL
+
+# Création du fichier .env
+cat <<EOL > projet-opcua/.env
+MYSQL_ROOT_PASSWORD=ec
+MYSQL_DATABASE=opcua_db
+MYSQL_USER=opcua_user
+MYSQL_PASSWORD=ec
+EOL
+
+# Création du fichier de configuration OPC UA
+cat <<EOL > projet-opcua/opcua_config/config.json
+{
+    "server_name": "My OPC UA Server",
+    "port": 4840,
+    "security": "None",
+    "endpoints": [
+        "opc.tcp://0.0.0.0:4840"
+    ]
+}
+EOL
+
+# Création du fichier Streamlit app.py
+cat <<EOL > projet-opcua/streamlit_app/app.py
+import streamlit as st
+
+st.title("Coucou")
+st.write("Bienvenue sur mon application Streamlit!")
+EOL
+
+# Création du fichier README.md
+cat <<EOL > projet-opcua/README.md
+# Projet OPC UA avec Docker
+
+## Services inclus
+- **MariaDB** (Base de données)
+- **PhpMyAdmin** (Gestion de la base)
+- **Streamlit** (Application Python)
+- **Node-RED** (Orchestration de flux)
+- **OPC UA Server** (Serveur OPC UA intégré)
+
+## Installation
+1. Assurez-vous d'avoir Docker et Docker Compose installés.
+2. Clonez ce projet et placez-vous dans le dossier.
+3. Lancez la commande :
+
+```bash
+docker-compose up -d
+```
+
+4. Accédez aux services :
+   - PhpMyAdmin : http://localhost:8080
+   - Streamlit : http://localhost:8501
+   - Node-RED : http://localhost:1880
+   - OPC UA Server : `opc.tcp://localhost:4840`
+
+Le serveur OPC UA est configuré selon `opcua_config/config.json`.
+EOL
+
+# Lancer Docker Compose
+cd projet-opcua && docker-compose up -d
+
+echo "Installation terminée. Tous les services sont en cours d'exécution."
