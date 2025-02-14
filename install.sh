@@ -91,10 +91,10 @@ if [ ! -f "/usr/local/include/open62541.h" ]; then
 fi
 
 # 📌 Ajout des chemins pour open62541
-export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
 export C_INCLUDE_PATH="/usr/local/include"
 export LIBRARY_PATH="/usr/local/lib"
 export LD_LIBRARY_PATH="/usr/local/lib"
+export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
 
 # 📌 Création du répertoire OPC UA + JSON
 mkdir -p opcua_server
