@@ -33,7 +33,6 @@ mkdir -p /etc/cloudflared
 cat <<EOF > /etc/cloudflared/config.yml
 tunnel: $TUNNEL_ID
 credentials-file: /root/.cloudflared/$TUNNEL_ID.json
-
 ingress:
   - hostname: nodered.$DOMAIN
     service: http://localhost:1880
@@ -63,7 +62,7 @@ sudo systemctl daemon-reload
 
 # 🔨 Installation des Dépendances pour Open62541
 echo "🔨 Installation des dépendances..."
-sudo apt install -y cmake gcc git libssl-dev libjansson-dev pkg-config python3 python3-pip python3-dev
+sudo apt install -y cmake gcc git libssl-dev libjansson-dev pkg-config python3 python3-pip python3-dev mariadb-server
 
 # 💪 Installation et Compilation d'Open62541
 echo "💪 Compilation d'Open62541..."
@@ -88,6 +87,16 @@ sudo cp /usr/local/include/open62541.h /usr/local/include/open62541/server.h
 # 🎯 Compilation du Serveur OPC UA
 echo "🎯 Compilation du serveur OPC UA..."
 mkdir -p ~/opcua_server
+cat <<EOF > ~/opcua_server/variables.json
+{
+  "variables": [
+    { "name": "temperature", "type": "Double", "initialValue": 25.0 },
+    { "name": "status", "type": "Boolean", "initialValue": true },
+    { "name": "speed", "type": "Int32", "initialValue": 100 }
+  ]
+}
+EOF
+
 cat <<EOF > ~/opcua_server/opcua_server.c
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
@@ -125,8 +134,46 @@ sudo systemctl daemon-reload
 sudo systemctl enable opcua_server.service
 sudo systemctl start opcua_server.service
 
+# 🐳 Création du fichier docker-compose.yml
+cat <<EOF > docker-compose.yml
+version: '3.8'
+services:
+  nodered:
+    image: nodered/node-red
+    restart: unless-stopped
+    ports:
+      - "1880:1880"
+
+  mariadb:
+    image: mariadb:latest
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ec
+    ports:
+      - "3306:3306"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mariadb
+      MYSQL_USER: ec
+      MYSQL_PASSWORD: ec
+    ports:
+      - "8080:80"
+
+  streamlit:
+    image: python:3.9
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ~/streamlit:/app
+    command: ["python3", "-m", "streamlit", "run", "app.py", "--server.port=8501"]
+    ports:
+      - "8501:8501"
+EOF
+
 # 🚀 Lancement des Services Docker
-echo "🚀 Démarrage des services Docker..."
 docker-compose up -d --build
 
 echo "✅ Installation Complète !"
