@@ -1,7 +1,17 @@
 #!/bin/bash
 
 # Mise à jour et installation des paquets nécessaires
-sudo apt update && sudo apt install -y docker.io docker-compose
+sudo apt update && sudo apt install -y docker.io docker-compose git build-essential cmake
+
+# Installation d'open62541
+mkdir -p ~/opcua_server && cd ~/opcua_server
+git clone https://github.com/open62541/open62541.git
+cd open62541
+git checkout v1.3.5
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DUA_ENABLE_AMALGAMATION=ON
+make -j$(nproc)
+sudo make install
 
 # Création du dossier du projet
 mkdir -p projet-opcua/streamlit_app projet-opcua/nodered_data projet-opcua/opcua_config
@@ -58,15 +68,6 @@ services:
     volumes:
       - ./nodered_data:/data
 
-  opcua_server:
-    image: ghcr.io/freeopcua/opcua-android:latest
-    container_name: opcua_server_container
-    restart: always
-    ports:
-      - "4840:4840"
-    volumes:
-      - ./opcua_config:/config
-
 volumes:
   mariadb_data:
 EOL
@@ -77,18 +78,6 @@ MYSQL_ROOT_PASSWORD=ec
 MYSQL_DATABASE=opcua_db
 MYSQL_USER=opcua_user
 MYSQL_PASSWORD=ec
-EOL
-
-# Création du fichier de configuration OPC UA
-cat <<EOL > projet-opcua/opcua_config/config.json
-{
-    "server_name": "My OPC UA Server",
-    "port": 4840,
-    "security": "None",
-    "endpoints": [
-        "opc.tcp://0.0.0.0:4840"
-    ]
-}
 EOL
 
 # Création du fichier Streamlit app.py
@@ -108,7 +97,7 @@ cat <<EOL > projet-opcua/README.md
 - **PhpMyAdmin** (Gestion de la base)
 - **Streamlit** (Application Python)
 - **Node-RED** (Orchestration de flux)
-- **OPC UA Server** (Serveur OPC UA intégré)
+- **OPC UA Server** (Serveur OPC UA basé sur open62541, installé hors Docker)
 
 ## Installation
 1. Assurez-vous d'avoir Docker et Docker Compose installés.
@@ -123,12 +112,11 @@ docker-compose up -d
    - PhpMyAdmin : http://localhost:8080
    - Streamlit : http://localhost:8501
    - Node-RED : http://localhost:1880
-   - OPC UA Server : `opc.tcp://localhost:4840`
 
-Le serveur OPC UA est configuré selon `opcua_config/config.json`.
+Le serveur OPC UA (open62541) est installé en dehors de Docker et doit être configuré manuellement.
 EOL
 
 # Lancer Docker Compose
 cd projet-opcua && docker-compose up -d
 
-echo "Installation terminée. Tous les services sont en cours d'exécution."
+echo "Installation terminée. Tous les services sont en cours d'exécution. Le serveur OPC UA open62541 est installé hors Docker."
