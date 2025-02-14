@@ -18,12 +18,12 @@ sudo apt update && sudo apt upgrade -y
 echo "🐳 Installation de Docker..."
 sudo apt install -y docker.io docker-compose
 
-# 🌩 Installation de Cloudflared
+# 🌩 Installation de Cloudflared (nouvelle méthode)
 echo "🌩 Installation de Cloudflared..."
-sudo mkdir -p --mode=0755 /usr/share/keyrings
-curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg > /dev/null
-echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/debian bullseye main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
-sudo apt update && sudo apt install -y cloudflared
+sudo mkdir -p /usr/local/bin
+curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+sudo chmod +x /usr/local/bin/cloudflared
+cloudflared -v
 
 # 🌍 Connexion à Cloudflare
 echo "🌍 Connexion à Cloudflare... Suivez les instructions affichées."
@@ -68,16 +68,27 @@ sudo systemctl enable --now cloudflared
 echo "🔧 Installation des dépendances..."
 sudo apt install -y cmake gcc git libssl-dev libjansson-dev pkg-config
 
-# 📌 Installation et Compilation de open62541
+# 📌 Télécharger et Compiler Open62541
 echo "⚙️ Téléchargement et compilation d'open62541..."
+mkdir -p /usr/local/src
 cd /usr/local/src
-sudo git clone https://github.com/open62541/open62541.git
+if [ ! -d "open62541" ]; then
+    sudo git clone https://github.com/open62541/open62541.git
+fi
 cd open62541
 sudo git checkout v1.3.5
-sudo mkdir build && cd build
+sudo mkdir -p build
+cd build
 sudo cmake .. -DUA_ENABLE_AMALGAMATION=ON
 sudo make -j$(nproc)
 sudo make install
+sudo ldconfig
+
+# 📌 Ajout des chemins pour open62541
+export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
+export C_INCLUDE_PATH="/usr/local/include"
+export LIBRARY_PATH="/usr/local/lib"
+export LD_LIBRARY_PATH="/usr/local/lib"
 
 # 📌 Création du répertoire OPC UA + JSON
 mkdir -p opcua_server
@@ -137,7 +148,15 @@ int main(void) {
 }
 EOF
 
-gcc -std=c99 -o opcua_server/opcua_server_bin opcua_server/opcua_server.c $(pkg-config --cflags --libs open62541) -ljansson
+# 📌 Compilation du serveur OPC UA
+gcc -std=c99 -o opcua_server/opcua_server_bin opcua_server/opcua_server.c \
+    -I/usr/local/include -L/usr/local/lib $(pkg-config --cflags --libs open62541) -ljansson
+
+# 📌 Vérification du fichier Docker Compose
+if [ ! -f "docker-compose.yml" ]; then
+    echo "❌ Erreur : fichier docker-compose.yml introuvable !"
+    exit 1
+fi
 
 # 🚀 Lancement des services Docker
 echo "🚀 Lancement des services..."
