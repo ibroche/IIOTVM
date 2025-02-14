@@ -111,8 +111,10 @@ int main(void) {
     return status == UA_STATUSCODE_GOOD ? 0 : 1;
 }
 EOF
+
 gcc -std=c99 -o ~/opcua_server/opcua_server_bin ~/opcua_server/opcua_server.c \
-    -I/usr/local/include/open62541 -L/usr/local/lib $(pkg-config --cflags --libs open62541) -ljansson
+    -I/usr/local/include -I/usr/local/include/open62541 -L/usr/local/lib \
+    $(pkg-config --cflags --libs open62541) -ljansson
 
 # 🔒 Configuration du Service OPC UA
 cat <<EOF | sudo tee /etc/systemd/system/opcua_server.service
