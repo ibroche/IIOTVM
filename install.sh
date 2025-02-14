@@ -64,38 +64,6 @@ cloudflared tunnel route dns $TUNNEL_ID opcua.$DOMAIN
 cloudflared service install
 sudo systemctl enable --now cloudflared
 
-# 📌 Installation des dépendances pour Open62541
-echo "🔧 Installation des dépendances..."
-sudo apt install -y cmake gcc git libssl-dev libjansson-dev pkg-config
-
-# 📌 Télécharger et Compiler Open62541
-echo "⚙️ Téléchargement et compilation d'open62541..."
-mkdir -p /usr/local/src
-cd /usr/local/src
-if [ ! -d "open62541" ]; then
-    sudo git clone https://github.com/open62541/open62541.git
-fi
-cd open62541
-sudo git checkout v1.3.5
-sudo mkdir -p build
-cd build
-sudo cmake .. -DUA_ENABLE_AMALGAMATION=ON
-sudo make -j$(nproc)
-sudo make install
-sudo ldconfig
-
-# 📌 Vérification de l'installation de Open62541
-if [ ! -f "/usr/local/include/open62541.h" ]; then
-    echo "❌ Erreur : Open62541 n'a pas été installé correctement."
-    exit 1
-fi
-
-# 📌 Ajout des chemins pour open62541
-export C_INCLUDE_PATH="/usr/local/include"
-export LIBRARY_PATH="/usr/local/lib"
-export LD_LIBRARY_PATH="/usr/local/lib"
-export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
-
 # 📌 Création du répertoire OPC UA + JSON
 mkdir -p opcua_server
 cat <<EOF > opcua_server/variables.json
@@ -154,9 +122,35 @@ int main(void) {
 }
 EOF
 
+# 📌 Création du Dockerfile pour OPC UA
+cat <<EOF > opcua_server/Dockerfile
+FROM ubuntu:latest
+
+# 📌 Installation des dépendances
+RUN apt update && apt install -y cmake gcc git libssl-dev libjansson-dev pkg-config
+
+# 📌 Téléchargement et Compilation de Open62541
+WORKDIR /usr/local/src
+RUN git clone https://github.com/open62541/open62541.git && \
+    cd open62541 && \
+    git checkout v1.3.5 && \
+    mkdir build && cd build && \
+    cmake .. -DUA_ENABLE_AMALGAMATION=ON && \
+    make -j\$(nproc) && \
+    make install && \
+    ldconfig
+
+# 📌 Copie du code source OPC UA dans le container
+WORKDIR /app
+COPY opcua_server.c /app/
+COPY variables.json /app/
+
 # 📌 Compilation du serveur OPC UA
-gcc -std=c99 -o opcua_server/opcua_server_bin opcua_server/opcua_server.c \
-    -I/usr/local/include -L/usr/local/lib $(pkg-config --cflags --libs open62541) -ljansson
+RUN gcc -std=c99 -o opcua_server_bin opcua_server.c -I/usr/local/include -L/usr/local/lib $(pkg-config --cflags --libs open62541) -ljansson
+
+# 📌 Exécution du serveur OPC UA
+CMD ["/app/opcua_server_bin"]
+EOF
 
 # 📌 Vérification et génération de docker-compose.yml si absent
 if [ ! -f "docker-compose.yml" ]; then
@@ -164,24 +158,6 @@ if [ ! -f "docker-compose.yml" ]; then
     cat <<EOF > docker-compose.yml
 version: '3'
 services:
-  nodered:
-    image: nodered/node-red
-    restart: unless-stopped
-    ports:
-      - "1880:1880"
-
-  streamlit:
-    image: python:3.9
-    restart: unless-stopped
-    ports:
-      - "8501:8501"
-
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    restart: unless-stopped
-    ports:
-      - "8080:80"
-
   opcua:
     build: ./opcua_server
     restart: unless-stopped
