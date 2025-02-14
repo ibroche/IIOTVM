@@ -1,16 +1,10 @@
 #!/bin/bash
 
-# 🔥 Demander le nom de domaine personnalisé
+# 🔥 Demander le nom de domaine Cloudflare
 echo "🔹 Entrez votre domaine Cloudflare (ex: votre-domaine.com) :"
 read DOMAIN
 
-# 🛠 Configuration par défaut
-TUNNEL_NAME="mon-tunnel"
-
-# 🚀 Démarrage de l'installation
-echo "🚀 Installation en cours... Patientez."
-
-# 📌 Mise à jour du système
+# 🚀 Mise à Jour et Installation des Dépendances
 echo "🔍 Mise à jour du système..."
 sudo apt update && sudo apt upgrade -y
 
@@ -18,7 +12,7 @@ sudo apt update && sudo apt upgrade -y
 echo "🐳 Installation de Docker..."
 sudo apt install -y docker.io docker-compose
 
-# 🌩 Installation de Cloudflared (nouvelle méthode)
+# 🌩 Installation de Cloudflared
 echo "🌩 Installation de Cloudflared..."
 sudo mkdir -p /usr/local/bin
 curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
@@ -30,12 +24,11 @@ echo "🌍 Connexion à Cloudflare... Suivez les instructions affichées."
 cloudflared tunnel login
 
 # 📌 Création du tunnel Cloudflare
-echo "📌 Création du tunnel $TUNNEL_NAME..."
-cloudflared tunnel create $TUNNEL_NAME
-TUNNEL_ID=$(cloudflared tunnel list | grep "$TUNNEL_NAME" | awk '{print $3}')
+echo "📌 Création du tunnel..."
+cloudflared tunnel create mon-tunnel
+TUNNEL_ID=$(cloudflared tunnel list | grep "mon-tunnel" | awk '{print $3}')
 
-# 📌 Configuration Cloudflare
-echo "⚙️ Configuration du tunnel Cloudflared..."
+# 📌 Configuration du tunnel
 mkdir -p /etc/cloudflared
 cat <<EOF > /etc/cloudflared/config.yml
 tunnel: $TUNNEL_ID
@@ -54,31 +47,27 @@ ingress:
 EOF
 
 # 🌐 Ajout des routes DNS Cloudflare
-echo "🌐 Ajout des routes DNS..."
 cloudflared tunnel route dns $TUNNEL_ID nodered.$DOMAIN
 cloudflared tunnel route dns $TUNNEL_ID streamlit.$DOMAIN
 cloudflared tunnel route dns $TUNNEL_ID phpmyadmin.$DOMAIN
 cloudflared tunnel route dns $TUNNEL_ID opcua.$DOMAIN
 
-# 🔄 Activation et démarrage du service Cloudflared
+# 🔄 Activation du service Cloudflared
 cloudflared service install
 sudo systemctl enable --now cloudflared
 
-# 📌 Installation des dépendances pour Open62541 en local
+# 📌 Installation des Dépendances pour Open62541
 echo "🔧 Installation des dépendances..."
-sudo apt install -y cmake gcc git libssl-dev libjansson-dev pkg-config
+sudo apt install -y cmake gcc git libssl-dev libjansson-dev pkg-config python3 python3-pip python3-dev
 
-# 📌 Télécharger et Compiler Open62541 en local
-echo "⚙️ Téléchargement et compilation d'open62541..."
+# 📌 Téléchargement et Compilation de Open62541
+echo "⚙️ Téléchargement et compilation de Open62541..."
 mkdir -p ~/open62541
 cd ~/open62541
-if [ ! -d "open62541" ]; then
-    git clone https://github.com/open62541/open62541.git
-fi
+git clone https://github.com/open62541/open62541.git
 cd open62541
 git checkout v1.3.5
-mkdir -p build
-cd build
+mkdir build && cd build
 cmake .. -DUA_ENABLE_AMALGAMATION=ON
 make -j$(nproc)
 sudo make install
@@ -90,13 +79,7 @@ if [ ! -f "/usr/local/include/open62541.h" ]; then
     exit 1
 fi
 
-# 📌 Ajout des chemins pour Open62541
-export C_INCLUDE_PATH="/usr/local/include"
-export LIBRARY_PATH="/usr/local/lib"
-export LD_LIBRARY_PATH="/usr/local/lib"
-export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
-
-# 📌 Création du répertoire OPC UA + JSON
+# 📌 Création du Répertoire OPC UA
 mkdir -p ~/opcua_server
 cat <<EOF > ~/opcua_server/variables.json
 {
@@ -108,7 +91,7 @@ cat <<EOF > ~/opcua_server/variables.json
 }
 EOF
 
-# 📌 Création du serveur OPC UA en local
+# 📌 Création du Serveur OPC UA
 cat <<EOF > ~/opcua_server/opcua_server.c
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
@@ -125,11 +108,11 @@ int main(void) {
 }
 EOF
 
-# 📌 Compilation du serveur OPC UA en local
+# 📌 Compilation du Serveur OPC UA
 gcc -std=c99 -o ~/opcua_server/opcua_server_bin ~/opcua_server/opcua_server.c \
     -I/usr/local/include -L/usr/local/lib $(pkg-config --cflags --libs open62541) -ljansson
 
-# 📌 Création d'un service systemd pour lancer le serveur OPC UA au démarrage
+# 📌 Création d'un Service systemd pour OPC UA
 cat <<EOF | sudo tee /etc/systemd/system/opcua_server.service
 [Unit]
 Description=OPC UA Server
@@ -145,15 +128,15 @@ Group=$USER
 WantedBy=multi-user.target
 EOF
 
-# 📌 Activation du service OPC UA
+# 📌 Activation du Service OPC UA
 sudo systemctl daemon-reload
 sudo systemctl enable opcua_server.service
-sudo systemctl restart opcua_server.service
+sudo systemctl start opcua_server.service
 echo "✅ Serveur OPC UA installé et démarré avec succès !"
 
-# 📌 Vérification et génération de docker-compose.yml si absent
+# 📌 Vérification et Création de `docker-compose.yml`
 if [ ! -f "docker-compose.yml" ]; then
-    echo "⚠️ Fichier docker-compose.yml introuvable, génération en cours..."
+    echo "⚠️ Fichier docker-compose.yml introuvable, création en cours..."
     cat <<EOF > docker-compose.yml
 version: '3'
 services:
@@ -177,8 +160,6 @@ services:
 EOF
 fi
 
-# 🚀 Lancement des services Docker
-echo "🚀 Lancement des services..."
+# 🚀 Lancement des Services Docker
 docker-compose up -d --build
-
-echo "✅ Installation terminée !"
+echo "✅ Installation Complète !"
