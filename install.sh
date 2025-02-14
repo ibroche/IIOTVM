@@ -57,24 +57,24 @@ cloudflared service install
 sudo systemctl enable --now cloudflared
 
 # 📌 Suppression complète des anciennes installations
-echo "🧹 Nettoyage des anciennes installations..."
+echo "🧹 Nettoyage complet d'Open62541..."
 sudo systemctl stop opcua_server.service || true
 sudo systemctl disable opcua_server.service || true
-sudo rm -rf ~/open62541 ~/opcua_server
+sudo rm -rf ~/open62541
 sudo rm -rf /usr/local/include/open62541*
 sudo rm -rf /usr/local/lib/libopen62541*
 sudo rm -rf /etc/systemd/system/opcua_server.service
 sudo systemctl daemon-reload
-sudo apt remove --purge -y cmake gcc git libssl-dev libjansson-dev pkg-config
-sudo apt autoremove -y
+
+# 📌 Installation des Dépendances pour Open62541
+echo "🔧 Installation des dépendances..."
 sudo apt install -y cmake gcc git libssl-dev libjansson-dev pkg-config python3 python3-pip python3-dev
 
 # 📌 Installation propre de Open62541
 echo "⚙️ Téléchargement et compilation de Open62541..."
 mkdir -p ~/open62541
 cd ~/open62541
-git clone https://github.com/open62541/open62541.git
-cd open62541
+git clone https://github.com/open62541/open62541.git .
 git checkout v1.3.5
 
 # 📌 Suppression du répertoire `build` s'il existe
