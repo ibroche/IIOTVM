@@ -90,6 +90,12 @@ if [ ! -f "/usr/local/include/open62541.h" ]; then
     exit 1
 fi
 
+# 📌 Ajout des chemins pour Open62541
+export C_INCLUDE_PATH="/usr/local/include"
+export LIBRARY_PATH="/usr/local/lib"
+export LD_LIBRARY_PATH="/usr/local/lib"
+export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
+
 # 📌 Création du répertoire OPC UA + JSON
 mkdir -p ~/opcua_server
 cat <<EOF > ~/opcua_server/variables.json
@@ -108,35 +114,6 @@ cat <<EOF > ~/opcua_server/opcua_server.c
 #include <open62541/server_config_default.h>
 #include <open62541/plugin/log_stdout.h>
 #include <jansson.h>
-
-static void addVariable(UA_Server *server, char *name, char *type, json_t *initialValue) {
-    UA_VariableAttributes attr = UA_VariableAttributes_default;
-    UA_Variant value;
-
-    if (strcmp(type, "Boolean") == 0 && json_is_boolean(initialValue)) {
-        UA_Boolean val = json_boolean_value(initialValue);
-        UA_Variant_setScalar(&value, &val, &UA_TYPES[UA_TYPES_BOOLEAN]);
-    } else if (strcmp(type, "Int32") == 0 && json_is_integer(initialValue)) {
-        UA_Int32 val = (UA_Int32) json_integer_value(initialValue);
-        UA_Variant_setScalar(&value, &val, &UA_TYPES[UA_TYPES_INT32]);
-    } else if (strcmp(type, "Double") == 0 && json_is_number(initialValue)) {
-        UA_Double val = (UA_Double) json_real_value(initialValue);
-        UA_Variant_setScalar(&value, &val, &UA_TYPES[UA_TYPES_DOUBLE]);
-    } else {
-        return;
-    }
-
-    attr.value = value;
-    attr.displayName = UA_LOCALIZEDTEXT("en-US", name);
-    attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
-
-    UA_NodeId nodeId = UA_NODEID_STRING(1, name);
-    UA_QualifiedName qName = UA_QUALIFIEDNAME(1, name);
-    UA_Server_addVariableNode(server, nodeId, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
-                              UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
-                              qName, UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE),
-                              attr, NULL, NULL);
-}
 
 int main(void) {
     UA_Server *server = UA_Server_new();
@@ -171,8 +148,34 @@ EOF
 # 📌 Activation du service OPC UA
 sudo systemctl daemon-reload
 sudo systemctl enable opcua_server.service
-sudo systemctl start opcua_server.service
+sudo systemctl restart opcua_server.service
 echo "✅ Serveur OPC UA installé et démarré avec succès !"
+
+# 📌 Vérification et génération de docker-compose.yml si absent
+if [ ! -f "docker-compose.yml" ]; then
+    echo "⚠️ Fichier docker-compose.yml introuvable, génération en cours..."
+    cat <<EOF > docker-compose.yml
+version: '3'
+services:
+  nodered:
+    image: nodered/node-red
+    restart: unless-stopped
+    ports:
+      - "1880:1880"
+
+  streamlit:
+    image: python:3.9
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+EOF
+fi
 
 # 🚀 Lancement des services Docker
 echo "🚀 Lancement des services..."
