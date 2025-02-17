@@ -33,45 +33,6 @@ sudo ufw allow 20,21,22,80,443,1880,1883,8080,8501/tcp
 # Création des répertoires et fichiers nécessaires
 mkdir -p "mqtt_data" "mqtt_log" "streamlit" "letsencrypt"
 
-# Création du fichier mosquitto.conf si non existant
-if [ ! -f "$mosquitto_conf" ]; then
-    cat <<EOL > "$mosquitto_conf"
-allow_anonymous true
-listener 1883
-persistence true
-persistence_location /mosquitto/data/
-log_dest file /mosquitto/log/mosquitto.log
-EOL
-    echo "Fichier mosquitto.conf créé."
-fi
-
-# Création du fichier traefik.yml si non existant
-if [ ! -f "$traefik_config" ]; then
-    cat <<EOL > "$traefik_config"
-entryPoints:
-  web:
-    address: ":80"
-  websecure:
-    address: ":443"
-
-providers:
-  docker:
-    exposedByDefault: false
-
-certificatesResolvers:
-  myresolver:
-    acme:
-      email: certbot@$domain_name
-      storage: /letsencrypt/acme.json
-      tlsChallenge: {}
-EOL
-    echo "Fichier traefik.yml créé."
-fi
-
-# Configuration des permissions pour Traefik SSL
-sudo touch letsencrypt/acme.json
-sudo chmod 600 letsencrypt/acme.json
-
 # Création du fichier docker-compose.yml si non existant
 if [ ! -f "$docker_compose_file" ]; then
     cat <<EOL > "$docker_compose_file"
@@ -82,10 +43,6 @@ services:
     image: traefik:v2.9
     container_name: traefik
     restart: always
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./traefik.yml:/traefik.yml
-      - ./letsencrypt:/letsencrypt
     command:
       - "--api.dashboard=true"
       - "--providers.docker"
@@ -97,6 +54,9 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./letsencrypt:/letsencrypt
     networks:
       - backend
 
