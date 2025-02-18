@@ -1,155 +1,153 @@
 #!/bin/bash
-
 set -e
 
-# Demande du domaine à l'utilisateur
-echo "Veuillez entrer votre nom de domaine (ex: example.com) :"
-read domain_name
+echo "=== Configuration initiale ==="
+read -p "Entrez votre email pour ACME (Let’s Encrypt) : " ACME_EMAIL
+read -p "Entrez votre domaine de base (ex: ibroche.com) : " BASE_DOMAIN
 
-# Variables
-docker_compose_file="docker-compose.yml"
-mosquitto_conf="mosquitto.conf"
-traefik_config="traefik.yml"
-ftp_user="ec"
-ftp_pass="ec"
+# Calcul automatique des sous-domaines
+PMA_DOMAIN="pma.${BASE_DOMAIN}"
+STREAMLIT_DOMAIN="streamlit.${BASE_DOMAIN}"
+NODERED_DOMAIN="nodered.${BASE_DOMAIN}"
 
-# Vérification de l'installation des prérequis
-if ! command -v docker &> /dev/null; then
-    echo "Docker n'est pas installé. Installation en cours..."
-    curl -fsSL https://get.docker.com | bash
-    sudo systemctl start docker
-    sudo systemctl enable docker
-fi
+# Identifiants et base de données par défaut
+MYSQL_USER="ec"
+MYSQL_PASSWORD="ec"
+MYSQL_DATABASE="IOT_DB"
 
-if ! command -v docker-compose &> /dev/null; then
-    echo "Docker Compose n'est pas installé. Installation en cours..."
-    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    sudo chmod +x /usr/local/bin/docker-compose
-fi
+echo "=== Création des répertoires nécessaires ==="
+mkdir -p streamlit letsencrypt
 
-# Ouverture des ports nécessaires
-sudo ufw allow 20,21,22,80,443,1880,1883,8080,8501/tcp
+echo "=== Création du fichier mosquitto.conf ==="
+cat <<'EOF' > mosquitto.conf
+allow_anonymous true
+listener 1883
+persistence true
+persistence_location /mosquitto/data/
+log_dest file /mosquitto/log/mosquitto.log
+EOF
 
-# Création des répertoires et fichiers nécessaires
-mkdir -p "mqtt_data" "mqtt_log" "streamlit" "letsencrypt"
-
-# Création du fichier docker-compose.yml si non existant
-if [ ! -f "$docker_compose_file" ]; then
-    cat <<EOL > "$docker_compose_file"
+echo "=== Création du fichier docker-compose.yml ==="
+cat <<EOF > docker-compose.yml
 version: '3.8'
 
 services:
   traefik:
     image: traefik:v2.9
-    container_name: traefik
-    restart: always
     command:
-      - "--api.dashboard=true"
-      - "--providers.docker"
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=certbot@$domain_name"
+      - "--certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./letsencrypt:/letsencrypt
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./letsencrypt:/letsencrypt"
     networks:
-      - backend
+      - app-network
 
   mariadb:
     image: mariadb:latest
-    container_name: mariadb
-    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ec
-      MYSQL_DATABASE: ec
-      MYSQL_USER: ec
-      MYSQL_PASSWORD: ec
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mariadb_data:/var/lib/mysql
     networks:
-      - backend
+      - app-network
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
-    container_name: phpmyadmin
-    restart: always
     environment:
       PMA_HOST: mariadb
-      MYSQL_ROOT_PASSWORD: ec
+      PMA_USER: ${MYSQL_USER}
+      PMA_PASSWORD: ${MYSQL_PASSWORD}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.$domain_name`)"
+      - "traefik.http.routers.phpmyadmin.rule=Host(\`${PMA_DOMAIN}\`)"
       - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
       - "traefik.http.routers.phpmyadmin.tls.certresolver=myresolver"
     networks:
-      - backend
-
-  mqtt:
-    image: eclipse-mosquitto:latest
-    container_name: mqtt
-    restart: always
-    volumes:
-      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - mqtt_data:/mosquitto/data
-      - mqtt_log:/mosquitto/log
-    networks:
-      - backend
-
-  nodered:
-    image: nodered/node-red:latest
-    container_name: nodered
-    restart: always
-    volumes:
-      - nodered_data:/data
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.nodered.rule=Host(`nodered.$domain_name`)"
-      - "traefik.http.routers.nodered.entrypoints=websecure"
-      - "traefik.http.routers.nodered.tls.certresolver=myresolver"
-    networks:
-      - backend
+      - app-network
 
   streamlit:
-    image: python:3.9
-    container_name: streamlit
-    restart: always
-    volumes:
-      - ./streamlit:/app
-    working_dir: /app
-    command: ["bash", "-c", "pip install streamlit && streamlit run app.py --server.port 8501 --server.enableCORS false --server.headless true"]
+    build: ./streamlit
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.streamlit.rule=Host(`streamlit.$domain_name`)"
+      - "traefik.http.routers.streamlit.rule=Host(\`${STREAMLIT_DOMAIN}\`)"
       - "traefik.http.routers.streamlit.entrypoints=websecure"
       - "traefik.http.routers.streamlit.tls.certresolver=myresolver"
     networks:
-      - backend
+      - app-network
+
+  nodered:
+    image: nodered/node-red:latest
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nodered.rule=Host(\`${NODERED_DOMAIN}\`)"
+      - "traefik.http.routers.nodered.entrypoints=websecure"
+      - "traefik.http.routers.nodered.tls.certresolver=myresolver"
+    volumes:
+      - nodered_data:/data
+    networks:
+      - app-network
+
+  mqtt:
+    container_name: mosquitto
+    image: eclipse-mosquitto:latest
+    restart: always
+    ports:
+      - "1883:1883"
+    networks:
+      - app-network       
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /mosquitto/data
+      - /mosquitto/log
 
 volumes:
   mariadb_data:
-  mqtt_data:
-  mqtt_log:
   nodered_data:
-  letsencrypt:
 
 networks:
-  backend:
-EOL
-    echo "Fichier docker-compose.yml créé."
-fi
+  app-network:
+    driver: bridge
+EOF
 
-# Vérification et démarrage des services avec Docker Compose
-if [ -f "$docker_compose_file" ]; then
-    echo "Lancement des services avec Docker Compose..."
-    docker-compose up -d
-else
-    echo "Fichier docker-compose.yml introuvable. Assurez-vous qu'il est bien présent."
-    exit 1
-fi
+echo "=== Création du Dockerfile pour le service Streamlit ==="
+mkdir -p streamlit
+cat <<'EOF' > streamlit/Dockerfile
+FROM python:3.9-slim
 
-echo "Installation terminée ! Tous les services sont lancés avec HTTPS sécurisé par Traefik."
+WORKDIR /app
+
+# Installation de Streamlit
+RUN pip install streamlit
+
+# Copie du fichier app.py dans le container
+COPY app.py .
+
+EXPOSE 8501
+
+# Lancement de Streamlit sur le port 8501 avec CORS désactivé
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.enableCORS=false"]
+EOF
+
+echo "=== Création du fichier streamlit/app.py (placeholder) ==="
+cat <<'EOF' > streamlit/app.py
+# Streamlit app placeholder.
+# Fonctionnalités à ajouter prochainement.
+EOF
+
+echo "=== Lancement de l'environnement avec docker-compose ==="
+docker-compose up -d
+
+echo "Installation terminée. Tous les services sont lancés."
