@@ -7,18 +7,17 @@ Ce guide décrit toutes les étapes nécessaires, depuis la création d’une ma
 ## 1. Création de la Machine Virtuelle sur Azure
 
 ### 1.1 Connexion au Portail Azure
-- Rendez-vous sur [Azure Portal](https://portal.azure.com/) et connectez-vous avec vos identifiants.
+- Rendez-vous sur [Azure Portal](https://azure.microsoft.com/fr-fr/free/students) et connectez-vous avec vos identifiants.
 
 ### 1.2 Création d’une Nouvelle VM
 - Cliquez sur **"Créer une ressource"** puis sélectionnez **"Machine virtuelle"**.
-- Choisissez un système d’exploitation Linux (par exemple, **Ubuntu Server 20.04 LTS**) pour assurer la compatibilité avec Docker et les outils de compilation.
+- Choisissez le dernier système d’exploitation Linux (aujourd'hui, **Ubuntu Server 24.04 LTS**) pour assurer la compatibilité avec Docker et les outils de compilation.
 - Remplissez les informations demandées (nom de la VM, région, taille, identifiants, etc.).
 - **Groupe de sécurité réseau :**
   - Ouvrez le port **80 (HTTP)** et le port **443 (HTTPS)** pour Traefik.
-  - Ouvrez également le port **1883** pour MQTT (et d’autres ports selon vos besoins).
-
+  - Ouvrez également le port **22** pour le **SSH**
 ### 1.3 Connexion à la VM
-Une fois la VM créée, connectez-vous via SSH avec la commande suivante :
+Une fois la VM créée, connectez-vous via Azure CLI de l'application Terminal dispo sur Windows Store ou via SSH avec la commande suivante :
 
 ```bash
 ssh <votre_utilisateur>@<adresse_ip_de_votre_VM>
@@ -29,14 +28,14 @@ ssh <votre_utilisateur>@<adresse_ip_de_votre_VM>
 ## 2. Configuration du Domaine Gratuit
 
 ### 2.1 Obtenir un Domaine Gratuit
-- Rendez-vous sur [freedomain.one](https://freedomain.one/) et inscrivez-vous pour obtenir un domaine gratuit. Par exemple, choisissez `ibroche.com` (ou un autre domaine disponible).
+- Rendez-vous sur [freedomain.one](https://freedomain.one/) et inscrivez-vous pour obtenir un domaine gratuit. Par exemple, choisissez `ibroche.publivcm.com` (ou un autre domaine disponible).
 
 ### 2.2 Configuration des Enregistrements DNS
 Dans l’interface de gestion DNS de freedomain.one, ajoutez des enregistrements de type **A** pour pointer votre domaine vers l’adresse IP publique de votre VM. Par exemple, créez les enregistrements suivants :
-- **pma.ibroche.com** (pour phpMyAdmin)
-- **streamlit.ibroche.com** (pour Streamlit)
-- **nodered.ibroche.com** (pour NodeRed)
-
+- **pma.ibroche.publicvm.com** (pour phpMyAdmin)
+- **streamlit.ibroche.publicvm.com** (pour Streamlit)
+- **nodered.ibroche.publicvm.com** (pour NodeRed)
+Remplacez ibroche.publicvm.com par **votre** URL.
 **Exemple d’enregistrement DNS :**
 
 - **Type :** A  
@@ -105,9 +104,9 @@ pkill opcua_server
 ## 6. Vérification et Gestion des Services
 
 ### 6.1 Accès aux Services via Navigateur
-- **phpMyAdmin :** `https://pma.ibroche.com`
-- **Streamlit :** `https://streamlit.ibroche.com`
-- **NodeRed :** `https://nodered.ibroche.com`
+- **phpMyAdmin :** `https://pma.ibroche.publicvm.com`
+- **Streamlit :** `https://streamlit.ibroche.publicvm.com`
+- **NodeRed :** `https://nodered.ibroche.publicvm.com`
 
 ### 6.2 Gestion des Conteneurs Docker
 Pour consulter les logs de vos services :
