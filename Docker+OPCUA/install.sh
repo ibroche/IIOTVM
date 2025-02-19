@@ -233,43 +233,42 @@ EOF
 #include <stdio.h>
 #include <stdlib.h>
 
-// Fonction d'ajout de variables au serveur à partir de la configuration.
-// Dans une implémentation complète, on analyserait le JSON.
 static void addVariablesFromConfig(UA_Server *server, const char *configJson) {
     // Valeurs par défaut (à extraire du JSON)
     double temperature = 25.0;
     double pressure = 1013.25;
 
-    UA_Variant value;
-    UA_Variant_init(&value);
-
     // Ajout de la variable "Temperature"
-    UA_Double temp = temperature;
-    UA_Variant_setScalar(&value, &temp, &UA_TYPES[UA_TYPES_DOUBLE]);
+    UA_VariableAttributes tempAttr = UA_VariableAttributes_default;
+    UA_Double tempVal = temperature;
+    UA_Variant_setScalar(&tempAttr.value, &tempVal, &UA_TYPES[UA_TYPES_DOUBLE]);
+    tempAttr.dataType = UA_TYPES[UA_TYPES_DOUBLE].typeId;
+    tempAttr.valueRank = -1;
+    tempAttr.displayName = UA_LOCALIZEDTEXT("en-US", "Temperature");
+    tempAttr.description = UA_LOCALIZEDTEXT("en-US", "The current temperature");
+
     UA_NodeId tempNodeId = UA_NODEID_STRING(1, "temperature");
     UA_QualifiedName tempName = UA_QUALIFIEDNAME(1, "Temperature");
-    UA_LocalizedText tempDisplayName = UA_LOCALIZEDTEXT("en-US", "Temperature");
     UA_Server_addVariableNode(server, tempNodeId,
         UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
         UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-        tempName, UA_NODEID_NULL,
-        tempDisplayName, tempDisplayName,
-        &value, NULL, NULL);
-
-    UA_Variant_init(&value);
+        tempName, UA_NODEID_NULL, tempAttr, NULL, NULL);
 
     // Ajout de la variable "Pressure"
-    UA_Double pres = pressure;
-    UA_Variant_setScalar(&value, &pres, &UA_TYPES[UA_TYPES_DOUBLE]);
+    UA_VariableAttributes presAttr = UA_VariableAttributes_default;
+    UA_Double presVal = pressure;
+    UA_Variant_setScalar(&presAttr.value, &presVal, &UA_TYPES[UA_TYPES_DOUBLE]);
+    presAttr.dataType = UA_TYPES[UA_TYPES_DOUBLE].typeId;
+    presAttr.valueRank = -1;
+    presAttr.displayName = UA_LOCALIZEDTEXT("en-US", "Pressure");
+    presAttr.description = UA_LOCALIZEDTEXT("en-US", "The current pressure");
+
     UA_NodeId presNodeId = UA_NODEID_STRING(1, "pressure");
     UA_QualifiedName presName = UA_QUALIFIEDNAME(1, "Pressure");
-    UA_LocalizedText presDisplayName = UA_LOCALIZEDTEXT("en-US", "Pressure");
     UA_Server_addVariableNode(server, presNodeId,
         UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
         UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-        presName, UA_NODEID_NULL,
-        presDisplayName, presDisplayName,
-        &value, NULL, NULL);
+        presName, UA_NODEID_NULL, presAttr, NULL, NULL);
 }
 
 static UA_StatusCode startOpcUaServer(const char *configFilePath) {
@@ -296,12 +295,12 @@ static UA_StatusCode startOpcUaServer(const char *configFilePath) {
 
     printf("Configuration JSON chargée :\n%s\n", jsonContent);
 
-    // Ici, vous pourriez analyser le JSON pour extraire les variables
+    // Ici, on pourrait analyser le JSON pour extraire des valeurs, mais on utilise des valeurs par défaut
     addVariablesFromConfig(server, jsonContent);
     free(jsonContent);
 
-    // Démarrage du serveur (bloquant)
-    UA_StatusCode retval = UA_Server_run(server, &retval);
+    volatile UA_Boolean running = true;
+    UA_StatusCode retval = UA_Server_run(server, &running);
     UA_Server_delete(server);
     return retval;
 }
@@ -310,6 +309,7 @@ int main(void) {
     const char *configFilePath = "opcua_config.json";
     return (int)startOpcUaServer(configFilePath);
 }
+
 EOF
 
     echo "Exemple de serveur OPC UA (opcua_server.c) créé."
