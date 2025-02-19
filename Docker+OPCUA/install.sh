@@ -42,6 +42,9 @@ mkdir -p streamlit letsencrypt
 
 # --- Création du fichier mosquitto.conf ---
 echo "=== Création du fichier mosquitto.conf ==="
+if [ -f mosquitto.conf ]; then
+    sudo rm -f mosquitto.conf
+fi
 cat <<'EOF' > mosquitto.conf
 allow_anonymous true
 listener 1883
