@@ -154,7 +154,7 @@ EOF
 
 # Lancement de l'environnement Docker via docker-compose
 echo "=== Lancement de l'environnement Docker avec docker-compose ==="
-docker-compose up -d
+sudo docker-compose up -d
 echo "=== Docker et services lancés ==="
 
 # --- Installation et configuration OPC UA (open62541) ---
