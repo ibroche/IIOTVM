@@ -150,7 +150,7 @@ services:
       - portainer_data:/data
     networks:
       - app-network
-
+      
 volumes:
   mariadb_data:
   nodered_data:
