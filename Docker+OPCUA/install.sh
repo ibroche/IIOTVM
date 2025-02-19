@@ -243,7 +243,7 @@ EOF
 #include <open62541/server_config_default.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "cJSON.h"  // Assurez-vous que cJSON est accessible dans votre include path
+#include <cjson/cJSON.h>
 
 static void addVariablesFromConfig(UA_Server *server, const char *configJson) {
     cJSON *json = cJSON_Parse(configJson);
@@ -316,7 +316,8 @@ EOF
     echo "Exemple de serveur OPC UA (opcua_server.c) créé."
 
     # Compilation du serveur OPC UA avec inclusion du chemin d'en-tête adéquat
-    gcc -std=c99 -I/usr/local/include -I./cJSON -L/usr/local/lib -o opcua_server opcua_server.c cJSON/cJSON.c -lopen62541
+    gcc -std=c99 -I/usr/include/cjson -I/usr/local/include -L/usr/local/lib -o opcua_server opcua_server.c -lopen62541
+
     echo "Serveur OPC UA compilé avec succès (exécutable 'opcua_server')."
 
     # Démarrage du serveur OPC UA en arrière-plan
