@@ -219,7 +219,7 @@ EOF
     # Création d'un exemple de serveur OPC UA qui lit le fichier JSON
     echo "=== Création de l'exemple de serveur OPC UA (opcua_server.c) ==="
     cat <<'EOF' > opcua_server.c
-#include <open62541.h>
+#include <open62541/server.h>
 #include <stdio.h>
 #include <stdlib.h>
 
