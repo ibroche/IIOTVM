@@ -61,7 +61,9 @@ sudo systemctl enable docker --now
 Lancez le script d’installation directement depuis GitHub avec la commande suivante :
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/ibroche/IIOTVM/main/Docker+OPCUA/install.sh | bash
+curl -sSL -o install.sh https://raw.githubusercontent.com/ibroche/IIOTVM/main/Docker+OPCUA/install.sh
+chmod +x install.sh
+./install.sh
 ```
 
 Ce script effectuera les actions suivantes :
