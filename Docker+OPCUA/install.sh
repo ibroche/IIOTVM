@@ -17,15 +17,7 @@ MYSQL_PASSWORD="ec"
 MYSQL_DATABASE="IOT_DB"
 
 # Exporter les variables pour docker-compose et générer un fichier .env
-export ACME_EMAIL
-export BASE_DOMAIN
-export PMA_DOMAIN
-export STREAMLIT_DOMAIN
-export NODERED_DOMAIN
-export MYSQL_USER
-export MYSQL_PASSWORD
-export MYSQL_DATABASE
-
+export ACME_EMAIL BASE_DOMAIN PMA_DOMAIN STREAMLIT_DOMAIN NODERED_DOMAIN MYSQL_USER MYSQL_PASSWORD MYSQL_DATABASE
 cat <<EOF > .env
 ACME_EMAIL=${ACME_EMAIL}
 BASE_DOMAIN=${BASE_DOMAIN}
@@ -42,6 +34,7 @@ mkdir -p streamlit letsencrypt
 
 # --- Création du fichier mosquitto.conf ---
 echo "=== Création du fichier mosquitto.conf ==="
+# Supprimer le fichier existant s'il existe (pour éviter les problèmes de permission)
 if [ -f mosquitto.conf ]; then
     sudo rm -f mosquitto.conf
 fi
@@ -68,7 +61,7 @@ services:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=\${ACME_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
     ports:
       - "80:80"
@@ -82,10 +75,10 @@ services:
   mariadb:
     image: mariadb:latest
     environment:
-      MYSQL_ROOT_PASSWORD: \${MYSQL_PASSWORD}
-      MYSQL_DATABASE: \${MYSQL_DATABASE}
-      MYSQL_USER: \${MYSQL_USER}
-      MYSQL_PASSWORD: \${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mariadb_data:/var/lib/mysql
     networks:
@@ -95,11 +88,11 @@ services:
     image: phpmyadmin/phpmyadmin:latest
     environment:
       PMA_HOST: mariadb
-      PMA_USER: \${MYSQL_USER}
-      PMA_PASSWORD: \${MYSQL_PASSWORD}
+      PMA_USER: ${MYSQL_USER}
+      PMA_PASSWORD: ${MYSQL_PASSWORD}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.phpmyadmin.rule=Host(\${PMA_DOMAIN})"
+      - "traefik.http.routers.phpmyadmin.rule=Host(${PMA_DOMAIN})"
       - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
       - "traefik.http.routers.phpmyadmin.tls.certresolver=myresolver"
     networks:
@@ -109,7 +102,7 @@ services:
     build: ./streamlit
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.streamlit.rule=Host(\${STREAMLIT_DOMAIN})"
+      - "traefik.http.routers.streamlit.rule=Host(${STREAMLIT_DOMAIN})"
       - "traefik.http.routers.streamlit.entrypoints=websecure"
       - "traefik.http.routers.streamlit.tls.certresolver=myresolver"
     networks:
@@ -119,7 +112,7 @@ services:
     image: nodered/node-red:latest
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.nodered.rule=Host(\${NODERED_DOMAIN})"
+      - "traefik.http.routers.nodered.rule=Host(${NODERED_DOMAIN})"
       - "traefik.http.routers.nodered.entrypoints=websecure"
       - "traefik.http.routers.nodered.tls.certresolver=myresolver"
     volumes:
@@ -134,7 +127,7 @@ services:
     ports:
       - "1883:1883"
     networks:
-      - app-network       
+      - app-network
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
       - /mosquitto/data
@@ -219,7 +212,7 @@ EOF
     # Création d'un exemple de serveur OPC UA qui lit le fichier JSON
     echo "=== Création de l'exemple de serveur OPC UA (opcua_server.c) ==="
     cat <<'EOF' > opcua_server.c
-#include <open62541/server.h>
+#include <open62541.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -305,7 +298,7 @@ EOF
     echo "Exemple de serveur OPC UA (opcua_server.c) créé."
 
     # Compilation du serveur OPC UA
-    gcc -std=c99 -I/usr/local/include -L/usr/local/lib -o opcua_server opcua_server.c -lopen62541
+    gcc -std=c99 -o opcua_server opcua_server.c -lopen62541
     echo "Serveur OPC UA compilé avec succès (exécutable 'opcua_server')."
 
     # Démarrage du serveur OPC UA en arrière-plan
