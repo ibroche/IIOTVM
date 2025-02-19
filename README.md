@@ -48,16 +48,8 @@ Répétez l’opération pour `streamlit` et `nodered`.
 
 ## 3. Installation de Docker et Déploiement de l’Environnement
 
-### 3.1 Installation de Docker et Docker Compose
-Sur la VM, installez Docker et Docker Compose :
 
-```bash
-sudo apt-get update
-sudo apt-get install -y docker.io docker-compose
-sudo systemctl enable docker --now
-```
-
-### 3.2 Téléchargement et Exécution du Script d’Installation
+### 3.1 Téléchargement et Exécution du Script d’Installation
 Lancez le script d’installation directement depuis GitHub avec la commande suivante :
 
 ```bash
