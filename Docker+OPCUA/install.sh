@@ -305,7 +305,7 @@ EOF
     echo "Exemple de serveur OPC UA (opcua_server.c) créé."
 
     # Compilation du serveur OPC UA
-    gcc -std=c99 -o opcua_server opcua_server.c -lopen62541
+    gcc -std=c99 -I/usr/local/include -L/usr/local/lib -o opcua_server opcua_server.c -lopen62541
     echo "Serveur OPC UA compilé avec succès (exécutable 'opcua_server')."
 
     # Démarrage du serveur OPC UA en arrière-plan
