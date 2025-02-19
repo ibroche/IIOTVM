@@ -177,6 +177,8 @@ echo "=== Docker et services lancés ==="
 # --- Installation et configuration OPC UA (open62541) ---
 read -p "Voulez-vous installer et configurer un serveur OPC UA (open62541) sur la VM ? (y/n) : " INSTALL_OPCUA
 if [[ "$INSTALL_OPCUA" =~ ^[Yy]$ ]]; then
+    echo "Arrêt temporaire des services Docker pour libérer des ressources..."
+    sudo docker-compose down
     echo "Installation de open62541..."
     sudo apt-get update
     sudo apt-get install -y git build-essential gcc pkg-config cmake python3 \
@@ -322,5 +324,6 @@ EOF
 else
     echo "Installation et configuration OPC UA ignorées."
 fi
-
+echo "Relance des services Docker..."
+sudo docker-compose up -d
 echo "Installation terminée. Tous les services Docker sont lancés, et le serveur OPC UA a été configuré selon 'opcua_config.json' si vous l'avez choisi."
