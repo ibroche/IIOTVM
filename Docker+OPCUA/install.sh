@@ -223,11 +223,18 @@ if [[ "$INSTALL_OPCUA" =~ ^[Yy]$ ]]; then
     "name": "My OPC UA Server",
     "variables": {
       "temperature": 25.0,
-      "pressure": 1013.25
+      "pressure": 1013.25,
+      "humidity": 45.0,
+      "status": true,
+      "device": "Sensor_A1"
     }
   }
 }
+
 EOF
+
+    # Installation de cJSON
+    sudo apt-get install libcjson-dev
 
     # Création d'un exemple de serveur OPC UA qui lit le fichier JSON
     echo "=== Création de l'exemple de serveur OPC UA (opcua_server.c) ==="
@@ -236,90 +243,80 @@ EOF
 #include <open62541/server_config_default.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "cJSON.h"  // Assurez-vous que cJSON est accessible dans votre include path
 
 static void addVariablesFromConfig(UA_Server *server, const char *configJson) {
-    // Valeurs par défaut (à extraire du JSON)
-    double temperature = 25.0;
-    double pressure = 1013.25;
-
-    // Ajout de la variable "Temperature"
-    UA_VariableAttributes tempAttr = UA_VariableAttributes_default;
-    UA_Double tempVal = temperature;
-    UA_Variant_setScalar(&tempAttr.value, &tempVal, &UA_TYPES[UA_TYPES_DOUBLE]);
-    tempAttr.dataType = UA_TYPES[UA_TYPES_DOUBLE].typeId;
-    tempAttr.valueRank = -1;
-    tempAttr.displayName = UA_LOCALIZEDTEXT("en-US", "Temperature");
-    tempAttr.description = UA_LOCALIZEDTEXT("en-US", "The current temperature");
-
-    UA_NodeId tempNodeId = UA_NODEID_STRING(1, "temperature");
-    UA_QualifiedName tempName = UA_QUALIFIEDNAME(1, "Temperature");
-    UA_Server_addVariableNode(server, tempNodeId,
-        UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
-        UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-        tempName, UA_NODEID_NULL, tempAttr, NULL, NULL);
-
-    // Ajout de la variable "Pressure"
-    UA_VariableAttributes presAttr = UA_VariableAttributes_default;
-    UA_Double presVal = pressure;
-    UA_Variant_setScalar(&presAttr.value, &presVal, &UA_TYPES[UA_TYPES_DOUBLE]);
-    presAttr.dataType = UA_TYPES[UA_TYPES_DOUBLE].typeId;
-    presAttr.valueRank = -1;
-    presAttr.displayName = UA_LOCALIZEDTEXT("en-US", "Pressure");
-    presAttr.description = UA_LOCALIZEDTEXT("en-US", "The current pressure");
-
-    UA_NodeId presNodeId = UA_NODEID_STRING(1, "pressure");
-    UA_QualifiedName presName = UA_QUALIFIEDNAME(1, "Pressure");
-    UA_Server_addVariableNode(server, presNodeId,
-        UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
-        UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-        presName, UA_NODEID_NULL, presAttr, NULL, NULL);
-}
-
-static UA_StatusCode startOpcUaServer(const char *configFilePath) {
-    UA_Server *server = UA_Server_new();
-    UA_ServerConfig_setDefault(UA_Server_getConfig(server));
-
-    // Lecture du fichier JSON de configuration
-    FILE *fp = fopen(configFilePath, "r");
-    if(!fp) {
-        printf("Erreur : impossible d'ouvrir le fichier JSON: %s\n", configFilePath);
-        return UA_STATUSCODE_BADNOTFOUND;
+    cJSON *json = cJSON_Parse(configJson);
+    if (!json) {
+        printf("Erreur de parsing JSON\n");
+        return;
     }
-    fseek(fp, 0, SEEK_END);
-    long fileSize = ftell(fp);
-    rewind(fp);
-    char *jsonContent = malloc(fileSize + 1);
-    if(!jsonContent) {
-        fclose(fp);
-        return UA_STATUSCODE_BADOUTOFMEMORY;
+    
+    cJSON *serverObj = cJSON_GetObjectItem(json, "server");
+    if (!serverObj) {
+        printf("Objet 'server' non trouvé dans le JSON\n");
+        cJSON_Delete(json);
+        return;
     }
-    fread(jsonContent, 1, fileSize, fp);
-    jsonContent[fileSize] = '\0';
-    fclose(fp);
+    
+    cJSON *variables = cJSON_GetObjectItem(serverObj, "variables");
+    if (!variables) {
+        printf("Objet 'variables' non trouvé dans le JSON\n");
+        cJSON_Delete(json);
+        return;
+    }
+    
+    cJSON *var = NULL;
+    cJSON_ArrayForEach(var, variables) {
+        const char *varName = var->string;
+        UA_VariableAttributes attr = UA_VariableAttributes_default;
+        UA_NodeId nodeId = UA_NODEID_STRING(1, varName);
+        UA_QualifiedName qname = UA_QUALIFIEDNAME(1, varName);
 
-    printf("Configuration JSON chargée :\n%s\n", jsonContent);
+        // Détecte le type de la variable dans le JSON et configure le UA_Variant
+        if(cJSON_IsNumber(var)) {
+            UA_Double val = var->valuedouble;
+            UA_Variant_setScalar(&attr.value, &val, &UA_TYPES[UA_TYPES_DOUBLE]);
+            attr.dataType = UA_TYPES[UA_TYPES_DOUBLE].typeId;
+            attr.valueRank = -1;
+        } else if(cJSON_IsBool(var)) {
+            UA_Boolean val = cJSON_IsTrue(var);
+            UA_Variant_setScalar(&attr.value, &val, &UA_TYPES[UA_TYPES_BOOLEAN]);
+            attr.dataType = UA_TYPES[UA_TYPES_BOOLEAN].typeId;
+            attr.valueRank = -1;
+        } else if(cJSON_IsString(var)) {
+            const char *str = cJSON_GetStringValue(var);
+            UA_String uaStr = UA_STRING_ALLOC(str);
+            UA_Variant_setScalar(&attr.value, &uaStr, &UA_TYPES[UA_TYPES_STRING]);
+            attr.dataType = UA_TYPES[UA_TYPES_STRING].typeId;
+            attr.valueRank = -1;
+        } else {
+            printf("Type non supporté pour la variable '%s'\n", varName);
+            continue;
+        }
+        
+        // Définir le nom d'affichage et la description en utilisant le nom de la variable
+        attr.displayName = UA_LOCALIZEDTEXT("en-US", varName);
+        attr.description = UA_LOCALIZEDTEXT("en-US", varName);
 
-    // Ici, on pourrait analyser le JSON pour extraire des valeurs, mais on utilise des valeurs par défaut
-    addVariablesFromConfig(server, jsonContent);
-    free(jsonContent);
+        UA_Server_addVariableNode(server, nodeId,
+            UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
+            UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+            qname, UA_NODEID_NULL, attr, NULL, NULL);
 
-    volatile UA_Boolean running = true;
-    UA_StatusCode retval = UA_Server_run(server, &running);
-    UA_Server_delete(server);
-    return retval;
+        printf("Variable '%s' ajoutée.\n", varName);
+    }
+    
+    cJSON_Delete(json);
 }
 
-int main(void) {
-    const char *configFilePath = "opcua_config.json";
-    return (int)startOpcUaServer(configFilePath);
-}
 
 EOF
 
     echo "Exemple de serveur OPC UA (opcua_server.c) créé."
 
     # Compilation du serveur OPC UA avec inclusion du chemin d'en-tête adéquat
-    gcc -std=c99 -I/usr/local/include -L/usr/local/lib -o opcua_server opcua_server.c -lopen62541
+    gcc -std=c99 -I/usr/local/include -I./cJSON -L/usr/local/lib -o opcua_server opcua_server.c cJSON/cJSON.c -lopen62541
     echo "Serveur OPC UA compilé avec succès (exécutable 'opcua_server')."
 
     # Démarrage du serveur OPC UA en arrière-plan
