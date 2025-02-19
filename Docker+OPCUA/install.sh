@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# --- Installation de Docker & Docker Compose ---
+echo "Mise à jour des paquets et installation de Docker et Docker Compose..."
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose
+sudo systemctl enable docker --now
+
 # --- Configuration pour Docker et Traefik ---
 echo "=== Configuration initiale pour Docker et Traefik ==="
 read -p "Entrez votre email pour ACME (Let's Encrypt) : " ACME_EMAIL
