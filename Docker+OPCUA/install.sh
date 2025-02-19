@@ -88,8 +88,6 @@ services:
     image: phpmyadmin/phpmyadmin:latest
     environment:
       PMA_HOST: mariadb
-      PMA_USER: ${MYSQL_USER}
-      PMA_PASSWORD: ${MYSQL_PASSWORD}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.phpmyadmin.rule=Host(\`${PMA_DOMAIN}\`)"
