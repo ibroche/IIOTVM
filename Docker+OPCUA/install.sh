@@ -136,7 +136,7 @@ services:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
       - /mosquitto/data
       - /mosquitto/log
-   portainer:
+  portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
     command: -H unix:///var/run/docker.sock
