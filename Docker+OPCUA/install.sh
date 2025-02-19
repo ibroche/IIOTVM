@@ -16,10 +16,31 @@ MYSQL_USER="ec"
 MYSQL_PASSWORD="ec"
 MYSQL_DATABASE="IOT_DB"
 
+# Exporter les variables pour docker-compose et générer un fichier .env
+export ACME_EMAIL
+export BASE_DOMAIN
+export PMA_DOMAIN
+export STREAMLIT_DOMAIN
+export NODERED_DOMAIN
+export MYSQL_USER
+export MYSQL_PASSWORD
+export MYSQL_DATABASE
+
+cat <<EOF > .env
+ACME_EMAIL=${ACME_EMAIL}
+BASE_DOMAIN=${BASE_DOMAIN}
+PMA_DOMAIN=${PMA_DOMAIN}
+STREAMLIT_DOMAIN=${STREAMLIT_DOMAIN}
+NODERED_DOMAIN=${NODERED_DOMAIN}
+MYSQL_USER=${MYSQL_USER}
+MYSQL_PASSWORD=${MYSQL_PASSWORD}
+MYSQL_DATABASE=${MYSQL_DATABASE}
+EOF
+
 echo "=== Création des répertoires nécessaires ==="
 mkdir -p streamlit letsencrypt
 
-# Création du fichier de configuration pour Mosquitto
+# --- Création du fichier mosquitto.conf ---
 echo "=== Création du fichier mosquitto.conf ==="
 cat <<'EOF' > mosquitto.conf
 allow_anonymous true
@@ -29,9 +50,9 @@ persistence_location /mosquitto/data/
 log_dest file /mosquitto/log/mosquitto.log
 EOF
 
-# Création du fichier docker-compose.yml
+# --- Création du fichier docker-compose.yml ---
 echo "=== Création du fichier docker-compose.yml ==="
-cat <<EOF > docker-compose.yml
+cat <<'EOF' > docker-compose.yml
 version: '3.8'
 
 services:
@@ -44,7 +65,7 @@ services:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.email=\${ACME_EMAIL}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
     ports:
       - "80:80"
@@ -58,10 +79,10 @@ services:
   mariadb:
     image: mariadb:latest
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: \${MYSQL_PASSWORD}
+      MYSQL_DATABASE: \${MYSQL_DATABASE}
+      MYSQL_USER: \${MYSQL_USER}
+      MYSQL_PASSWORD: \${MYSQL_PASSWORD}
     volumes:
       - mariadb_data:/var/lib/mysql
     networks:
@@ -71,11 +92,11 @@ services:
     image: phpmyadmin/phpmyadmin:latest
     environment:
       PMA_HOST: mariadb
-      PMA_USER: ${MYSQL_USER}
-      PMA_PASSWORD: ${MYSQL_PASSWORD}
+      PMA_USER: \${MYSQL_USER}
+      PMA_PASSWORD: \${MYSQL_PASSWORD}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.phpmyadmin.rule=Host(${PMA_DOMAIN})"
+      - "traefik.http.routers.phpmyadmin.rule=Host(\${PMA_DOMAIN})"
       - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
       - "traefik.http.routers.phpmyadmin.tls.certresolver=myresolver"
     networks:
@@ -85,7 +106,7 @@ services:
     build: ./streamlit
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.streamlit.rule=Host(${STREAMLIT_DOMAIN})"
+      - "traefik.http.routers.streamlit.rule=Host(\${STREAMLIT_DOMAIN})"
       - "traefik.http.routers.streamlit.entrypoints=websecure"
       - "traefik.http.routers.streamlit.tls.certresolver=myresolver"
     networks:
@@ -95,7 +116,7 @@ services:
     image: nodered/node-red:latest
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.nodered.rule=Host(${NODERED_DOMAIN})"
+      - "traefik.http.routers.nodered.rule=Host(\${NODERED_DOMAIN})"
       - "traefik.http.routers.nodered.entrypoints=websecure"
       - "traefik.http.routers.nodered.tls.certresolver=myresolver"
     volumes:
@@ -125,7 +146,7 @@ networks:
     driver: bridge
 EOF
 
-# Création du Dockerfile pour le service Streamlit
+# --- Création du Dockerfile pour le service Streamlit ---
 echo "=== Création du Dockerfile pour le service Streamlit ==="
 mkdir -p streamlit
 cat <<'EOF' > streamlit/Dockerfile
@@ -145,14 +166,14 @@ EXPOSE 8501
 CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.enableCORS=false"]
 EOF
 
-# Création du fichier streamlit/app.py (placeholder)
+# --- Création du fichier streamlit/app.py (placeholder) ---
 echo "=== Création du fichier streamlit/app.py (placeholder) ==="
 cat <<'EOF' > streamlit/app.py
 # Streamlit app placeholder.
 # Fonctionnalités à ajouter prochainement.
 EOF
 
-# Lancement de l'environnement Docker via docker-compose
+# --- Lancement de l'environnement Docker ---
 echo "=== Lancement de l'environnement Docker avec docker-compose ==="
 sudo docker-compose up -d
 echo "=== Docker et services lancés ==="
