@@ -184,7 +184,16 @@ if [[ "$INSTALL_OPCUA" =~ ^[Yy]$ ]]; then
       libavahi-client-dev libavahi-common-dev
 
     # Clonage et compilation d'open62541
-    git clone https://github.com/open62541/open62541.git
+    if [ -d "open62541" ]; then
+        echo "Le dossier open62541 existe déjà, mise à jour..."
+        cd open62541
+        git pull
+        git submodule update --init --recursive
+        cd ..
+    else
+        git clone https://github.com/open62541/open62541.git
+    fi
+
     cd open62541
     git submodule update --init --recursive
     mkdir build && cd build
