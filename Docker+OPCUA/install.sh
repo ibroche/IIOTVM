@@ -136,10 +136,25 @@ services:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
       - /mosquitto/data
       - /mosquitto/log
+   portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    command: -H unix:///var/run/docker.sock
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=myresolver"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - app-network
 
 volumes:
   mariadb_data:
   nodered_data:
+  portainer_data:
 
 networks:
   app-network:
