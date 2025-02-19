@@ -183,19 +183,24 @@ if [[ "$INSTALL_OPCUA" =~ ^[Yy]$ ]]; then
       libmbedtls-dev check libsubunit-dev python3-sphinx graphviz python3-sphinx-rtd-theme \
       libavahi-client-dev libavahi-common-dev
 
-    # Clonage et compilation d'open62541
+    # Si le dossier open62541 existe déjà, on le met à jour, sinon on le clone
     if [ -d "open62541" ]; then
         echo "Le dossier open62541 existe déjà, mise à jour..."
         cd open62541
         git pull
         git submodule update --init --recursive
-        cd ..
     else
         git clone https://github.com/open62541/open62541.git
+        cd open62541
+        git submodule update --init --recursive
     fi
 
-    cd open62541
-    git submodule update --init --recursive
+    # Si le dossier build existe déjà, on le supprime pour repartir sur une base propre
+    if [ -d "build" ]; then
+        echo "Le dossier build existe déjà, suppression..."
+        rm -rf build
+    fi
+
     mkdir build && cd build
     cmake ..
     make -j$(nproc)
@@ -222,6 +227,7 @@ EOF
     echo "=== Création de l'exemple de serveur OPC UA (opcua_server.c) ==="
     cat <<'EOF' > opcua_server.c
 #include <open62541/server.h>
+#include <open62541/server_config_default.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -306,8 +312,8 @@ EOF
 
     echo "Exemple de serveur OPC UA (opcua_server.c) créé."
 
-    # Compilation du serveur OPC UA
-    gcc -std=c99 -o opcua_server opcua_server.c -lopen62541
+    # Compilation du serveur OPC UA avec inclusion du chemin d'en-tête adéquat
+    gcc -std=c99 -I/usr/local/include -L/usr/local/lib -o opcua_server opcua_server.c -lopen62541
     echo "Serveur OPC UA compilé avec succès (exécutable 'opcua_server')."
 
     # Démarrage du serveur OPC UA en arrière-plan
