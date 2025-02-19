@@ -75,7 +75,7 @@ services:
       PMA_PASSWORD: ${MYSQL_PASSWORD}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.phpmyadmin.rule=Host(\`${PMA_DOMAIN}\`)"
+      - "traefik.http.routers.phpmyadmin.rule=Host(${PMA_DOMAIN})"
       - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
       - "traefik.http.routers.phpmyadmin.tls.certresolver=myresolver"
     networks:
@@ -85,7 +85,7 @@ services:
     build: ./streamlit
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.streamlit.rule=Host(\`${STREAMLIT_DOMAIN}\`)"
+      - "traefik.http.routers.streamlit.rule=Host(${STREAMLIT_DOMAIN})"
       - "traefik.http.routers.streamlit.entrypoints=websecure"
       - "traefik.http.routers.streamlit.tls.certresolver=myresolver"
     networks:
@@ -95,7 +95,7 @@ services:
     image: nodered/node-red:latest
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.nodered.rule=Host(\`${NODERED_DOMAIN}\`)"
+      - "traefik.http.routers.nodered.rule=Host(${NODERED_DOMAIN})"
       - "traefik.http.routers.nodered.entrypoints=websecure"
       - "traefik.http.routers.nodered.tls.certresolver=myresolver"
     volumes:
