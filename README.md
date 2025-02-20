@@ -33,17 +33,16 @@ ssh <votre_utilisateur>@<adresse_ip_de_votre_VM>
 
 ### 2.2 Configuration des Enregistrements DNS
 Dans l’interface de gestion DNS de freedomain.one, ajoutez des enregistrements de type **A** pour pointer votre domaine vers l’adresse IP publique de votre VM. Par exemple, créez les enregistrements suivants :
-- **pma.ibroche.publicvm.com** (pour phpMyAdmin)
-- **streamlit.ibroche.publicvm.com** (pour Streamlit)
-- **nodered.ibroche.publicvm.com** (pour NodeRed)
-Remplacez ibroche.publicvm.com par **votre** URL.
+- **pma.ibrochee.publicvm.com** (pour phpMyAdmin)
+- **streamlit.ibrochee.publicvm.com** (pour Streamlit)
+- **nodered.ibrochee.publicvm.com** (pour NodeRed)
+- **portainer.ibrochee.publicvm.com** (pour Portainer)
+Remplacez ibrochee.publicvm.com par **votre** URL.
 **Exemple d’enregistrement DNS :**
-
-- **Type :** A  
 - **Nom :** `pma`  
 - **Valeur :** `<adresse_ip_de_votre_VM>`
 
-Répétez l’opération pour `streamlit` et `nodered`.
+Répétez l’opération pour `streamlit`, `nodered` et `portainer`.
 
 ---
 
@@ -100,10 +99,11 @@ gcc -std=c99 -I/usr/local/include -L/usr/local/lib -o opcua_server opcua_server.
 ## 6. Vérification et Gestion des Services
 
 ### 6.1 Accès aux Services via Navigateur
-- **phpMyAdmin :** `https://pma.ibroche.publicvm.com`
-- **Streamlit :** `https://streamlit.ibroche.publicvm.com`
-- **NodeRed :** `https://nodered.ibroche.publicvm.com`
-
+- **phpMyAdmin :** `https://pma.ibrochee.publicvm.com`
+- **Streamlit :** `https://streamlit.ibrochee.publicvm.com`
+- **NodeRed :** `https://nodered.ibrochee.publicvm.com`
+- **Portainer :** `https://portainer.ibrochee.publicvm.com`
+Remplacez bien le domaine exemple (ibrochee.publicvm.com) par votre domaine 
 ### 6.2 Gestion des Conteneurs Docker
 Pour consulter les logs de vos services :
 
