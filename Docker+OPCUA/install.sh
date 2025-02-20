@@ -16,6 +16,7 @@ read -p "Entrez votre domaine de base (ex: ibroche.com) : " BASE_DOMAIN
 PMA_DOMAIN="pma.${BASE_DOMAIN}"
 STREAMLIT_DOMAIN="streamlit.${BASE_DOMAIN}"
 NODERED_DOMAIN="nodered.${BASE_DOMAIN}"
+PORTAINER_DOMAIN="portainer.${BASE_DOMAIN}"
 
 # Identifiants et base de données par défaut
 MYSQL_USER="ec"
@@ -30,6 +31,7 @@ BASE_DOMAIN=${BASE_DOMAIN}
 PMA_DOMAIN=${PMA_DOMAIN}
 STREAMLIT_DOMAIN=${STREAMLIT_DOMAIN}
 NODERED_DOMAIN=${NODERED_DOMAIN}
+PORTAINER_DOMAIN=${PORTAINER_DOMAIN}
 MYSQL_USER=${MYSQL_USER}
 MYSQL_PASSWORD=${MYSQL_PASSWORD}
 MYSQL_DATABASE=${MYSQL_DATABASE}
@@ -142,7 +144,7 @@ services:
     command: -H unix:///var/run/docker.sock
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.portainer.rule=Host(`portainer.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.portainer.rule=Host(\`${PORTAINER_DOMAIN}\`)"
       - "traefik.http.routers.portainer.entrypoints=websecure"
       - "traefik.http.routers.portainer.tls.certresolver=myresolver"
     volumes:
