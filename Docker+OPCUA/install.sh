@@ -147,6 +147,7 @@ services:
       - "traefik.http.routers.portainer.rule=Host(\`${PORTAINER_DOMAIN}\`)"
       - "traefik.http.routers.portainer.entrypoints=websecure"
       - "traefik.http.routers.portainer.tls.certresolver=myresolver"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
