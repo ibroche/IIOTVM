@@ -288,6 +288,7 @@ static void addVariablesFromConfig(UA_Server *server, const char *configJson) {
     cJSON_ArrayForEach(var, variables) {
         const char *varName = var->string;
         UA_VariableAttributes attr = UA_VariableAttributes_default;
+        attr.accessLevel = UA_ACCESSLEVELTYPE_CURRENTREAD | UA_ACCESSLEVELTYPE_CURRENTWRITE;
         UA_NodeId nodeId = UA_NODEID_STRING(1, (char *)varName);
         UA_QualifiedName qname = UA_QUALIFIEDNAME(1, (char *)varName);
 
