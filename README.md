@@ -116,6 +116,7 @@ Pour l’arrêter ou le redémarrer, utilisez :
 
 ```bash
 pkill opcua_server
+gcc -std=c99 -I/usr/local/include -L/usr/local/lib -o opcua_server opcua_server.c -lopen62541 -lcjson
 ./opcua_server &
 ```
 
