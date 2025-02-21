@@ -2,6 +2,9 @@
 
 Ce guide décrit toutes les étapes nécessaires, depuis la création d’une machine virtuelle sur Azure jusqu’au déploiement d’un environnement complet comprenant Docker (avec Traefik, MariaDB, phpMyAdmin, Streamlit, NodeRed, MQTT) et l’installation/configuration d’un serveur OPC UA (basé sur open62541) piloté par un fichier JSON.
 
+Ptite [vidéo](https://youtu.be/HKy8vaBAl9k) pour résumer les étapes : https://youtu.be/HKy8vaBAl9k
+
+Mise en Place de l'Environnement
 ---
 
 ## 1. Création de la Machine Virtuelle sur Azure
