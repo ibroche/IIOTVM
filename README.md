@@ -19,7 +19,7 @@ Mise en Place de l'Environnement
 - **Groupe de sécurité réseau :**
   - Ouvrez le port **80 (HTTP)** et le port **443 (HTTPS)** pour Traefik.
   - Ouvrez également le port **22** pour le **SSH**
-  - Ouvrez également le port **4840** pour le **Serveur OPC UA**
+  - Ouvrez également le port **4840** pour le **Serveur OPC UA** (à faire après la création de la VM en accédant à Mise en Réseau puis ajouter règle entrante)
 ### 1.3 Connexion à la VM
 Une fois la VM créée, connectez-vous via Azure CLI de l'application Terminal dispo sur Windows Store ou via SSH avec la commande suivante :
 
