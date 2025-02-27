@@ -24,6 +24,11 @@ Mise en Place de l'Environnement
 Une fois la VM créée, connectez-vous via Azure CLI de l'application Terminal dispo sur Windows Store ou via SSH avec la commande suivante :
 
 ```bash
+az ssh vm --ip <adresse_ip_de_votre_VM> --local_user <votre_utilisateur>
+```
+Ou, si ca ne fonctionne pas :
+
+```bash
 ssh <votre_utilisateur>@<adresse_ip_de_votre_VM>
 ```
 
