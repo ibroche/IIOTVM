@@ -240,11 +240,11 @@ if [[ "$INSTALL_OPCUA" =~ ^[Yy]$ ]]; then
   "server": {
     "name": "My OPC UA Server",
     "variables": {
-      "temperature": 25.0,
-      "pressure": 1013.25,
-      "humidity": 45.0,
-      "status": true,
-      "device": "Sensor_A1"
+      "FIO-temperature": 25.0,
+      "FIO-pressure": 1013.25,
+      "FIO-humidity": 45.0,
+      "FIO-status": true,
+      "FIO-msg": "9liwa"
     }
   }
 }
