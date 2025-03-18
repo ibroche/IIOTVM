@@ -14,7 +14,6 @@ read -p "Entrez votre domaine de base (ex: ibroche.com) : " BASE_DOMAIN
 
 # Calcul automatique des sous-domaines
 PMA_DOMAIN="pma.${BASE_DOMAIN}"
-STREAMLIT_DOMAIN="streamlit.${BASE_DOMAIN}"
 NODERED_DOMAIN="nodered.${BASE_DOMAIN}"
 PORTAINER_DOMAIN="portainer.${BASE_DOMAIN}"
 
@@ -29,7 +28,6 @@ cat <<EOF > .env
 ACME_EMAIL=${ACME_EMAIL}
 BASE_DOMAIN=${BASE_DOMAIN}
 PMA_DOMAIN=${PMA_DOMAIN}
-STREAMLIT_DOMAIN=${STREAMLIT_DOMAIN}
 NODERED_DOMAIN=${NODERED_DOMAIN}
 PORTAINER_DOMAIN=${PORTAINER_DOMAIN}
 MYSQL_USER=${MYSQL_USER}
@@ -104,16 +102,6 @@ services:
     networks:
       - app-network
 
-  streamlit:
-    build: ./streamlit
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.streamlit.rule=Host(\`${STREAMLIT_DOMAIN}\`)"
-      - "traefik.http.routers.streamlit.entrypoints=websecure"
-      - "traefik.http.routers.streamlit.tls.certresolver=myresolver"
-    networks:
-      - app-network
-
   nodered:
     image: nodered/node-red:latest
     labels:
@@ -162,33 +150,6 @@ volumes:
 networks:
   app-network:
     driver: bridge
-EOF
-
-# --- Création du Dockerfile pour le service Streamlit ---
-echo "=== Création du Dockerfile pour le service Streamlit ==="
-mkdir -p streamlit
-cat <<'EOF' > streamlit/Dockerfile
-FROM python:3.9-slim
-
-WORKDIR /app
-
-# Installation de Streamlit
-RUN pip install streamlit
-
-# Copie du fichier app.py dans le container
-COPY app.py .
-
-EXPOSE 8501
-
-# Lancement de Streamlit sur le port 8501 avec CORS désactivé
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.enableCORS=false"]
-EOF
-
-# --- Création du fichier streamlit/app.py (placeholder) ---
-echo "=== Création du fichier streamlit/app.py (placeholder) ==="
-cat <<'EOF' > streamlit/app.py
-# Streamlit app placeholder.
-# Fonctionnalités à ajouter prochainement.
 EOF
 
 # --- Lancement de l'environnement Docker ---
@@ -244,7 +205,7 @@ if [[ "$INSTALL_OPCUA" =~ ^[Yy]$ ]]; then
       "FIO-pressure": 1013.25,
       "FIO-humidity": 45.0,
       "FIO-status": true,
-      "FIO-msg": "9liwa"
+      "FIO-msg": "Hello World"
     }
   }
 }
